@@ -1,6 +1,8 @@
 import phonenumbers
 from phonenumbers.phonenumberutil import NumberParseException
-from typing import Optional
+from phonenumbers import geocoder, carrier, number_type, PhoneNumberType
+from phonenumbers import timezone as phtimezone
+from typing import Optional, Dict, Any, List
 
 ID_REGION = "ID"
 
@@ -70,3 +72,57 @@ def infer_carrier_local_prefix(e164: str) -> Optional[str]:
 		if prefix in PREFIX_TO_CARRIER:
 			return PREFIX_TO_CARRIER[prefix]
 	return None
+
+
+def enrich_number_details(raw: str, locale: str = "en") -> Optional[Dict[str, Any]]:
+	try:
+		num = phonenumbers.parse(raw, ID_REGION)
+	except NumberParseException:
+		return None
+	valid = phonenumbers.is_valid_number(num)
+	if not valid or phonenumbers.region_code_for_number(num) != ID_REGION:
+		return None
+	formats = {
+		"e164": phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164),
+		"international": phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.INTERNATIONAL),
+		"national": phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.NATIONAL),
+	}
+	num_type = number_type(num)
+	if num_type == PhoneNumberType.MOBILE:
+		type_label = "mobile"
+	elif num_type == PhoneNumberType.FIXED_LINE:
+		type_label = "fixed_line"
+	elif num_type == PhoneNumberType.FIXED_LINE_OR_MOBILE:
+		type_label = "fixed_or_mobile"
+	elif num_type == PhoneNumberType.TOLL_FREE:
+		type_label = "toll_free"
+	elif num_type == PhoneNumberType.PREMIUM_RATE:
+		type_label = "premium_rate"
+	else:
+		type_label = "unknown"
+	tzs: List[str] = list(phtimezone.time_zones_for_number(num))
+	desc = geocoder.description_for_number(num, locale) or geocoder.description_for_number(num, "en")
+	car = carrier.name_for_number(num, locale) or carrier.name_for_number(num, "en")
+	return {
+		"valid": valid,
+		"formats": formats,
+		"number_type": type_label,
+		"timezones": tzs,
+		"description": desc or None,
+		"carrier_name": car or None,
+	}
+
+
+def compute_risk_score(approved_reports: List[Dict[str, Any]]) -> int:
+	if not approved_reports:
+		return 0
+	weights = {"fraud": 3, "scam": 3, "harassment": 2, "spam": 1, "other": 1}
+	total_weight = 0
+	score_accum = 0
+	for r in approved_reports:
+		w = weights.get(r.get("category"), 1)
+		conf = int(r.get("confidence", 50))
+		score_accum += w * conf
+		total_weight += w * 100
+	raw = int(round((score_accum / total_weight) * 100))
+	return max(0, min(100, raw))

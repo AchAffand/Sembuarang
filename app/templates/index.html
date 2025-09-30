@@ -33,9 +33,9 @@
 		result.style.display = 'block';
 		result.innerHTML = `
 			<h3>${data.e164}</h3>
+			<p>Description: ${data.description || '-'}</p>
 			<p>Reports: <strong>${data.report_count}</strong></p>
 			<p>Carrier: ${data.carrier || '-'}</p>
-			<p>Line type: ${data.line_type || '-'}</p>
 			<p><a href="/numbers/${encodeURIComponent(data.e164)}">View details</a></p>
 		`;
 	});

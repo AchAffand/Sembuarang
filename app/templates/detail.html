@@ -11,10 +11,16 @@
 		<h1>Number Detail</h1>
 		<div class="card">
 			<h2 id="num"></h2>
-			<p>Carrier: <span id="carrier">-</span> | Line: <span id="line">-</span></p>
+			<p>Description: <span id="desc">-</span></p>
+			<p>Carrier: <span id="carrier">-</span> | Line: <span id="line">-</span> | Type: <span id="type">-</span></p>
+			<p>Timezones: <span id="tz">-</span></p>
+			<p>Formats: <span id="fmt-e164"></span> · <span id="fmt-intl"></span> · <span id="fmt-national"></span></p>
+			<p>Risk score: <strong id="risk">0</strong>/100</p>
 		</div>
 		<section>
 			<h3>Reports</h3>
+			<p>Approved total: <span id="rep-total">0</span></p>
+			<ul id="rep-stats"></ul>
 			<ul id="reports"></ul>
 		</section>
 		<section>
@@ -50,15 +56,28 @@
 		const data = await res.json();
 		document.getElementById('carrier').innerText = data.carrier || '-';
 		document.getElementById('line').innerText = data.line_type || '-';
+		document.getElementById('type').innerText = data.number_type || '-';
+		document.getElementById('tz').innerText = (data.timezones || []).join(', ') || '-';
+		document.getElementById('desc').innerText = data.description || '-';
+		document.getElementById('fmt-e164').innerText = data.formats.e164;
+		document.getElementById('fmt-intl').innerText = data.formats.international;
+		document.getElementById('fmt-national').innerText = data.formats.national;
+		document.getElementById('risk').innerText = data.risk_score;
+		document.getElementById('rep-total').innerText = data.report_stats.total_approved;
+		const stats = document.getElementById('rep-stats');
+		stats.innerHTML = '';
+		Object.entries(data.report_stats.by_category || {}).forEach(([k,v]) => {
+			const li = document.createElement('li');
+			li.textContent = `${k}: ${v}`;
+			stats.appendChild(li);
+		});
 		const list = document.getElementById('reports');
 		list.innerHTML = '';
-		data.reports
-			.filter(r => r.is_approved && !r.is_hidden)
-			.forEach(r => {
-				const li = document.createElement('li');
-				li.textContent = `${r.category} (${r.confidence}): ${r.note || ''}`;
-				list.appendChild(li);
-			});
+		(data.reports || []).forEach(r => {
+			const li = document.createElement('li');
+			li.textContent = `${r.category} (${r.confidence}): ${r.note || ''}`;
+			list.appendChild(li);
+		});
 	}
 
 	loadDetails();
