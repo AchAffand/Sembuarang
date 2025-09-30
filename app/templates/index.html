@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>ID Number Reputation Tracker</title>
+	<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+	<main class="container">
+		<h1>Indonesia Phone Number Checker</h1>
+		<p>Check the reputation of an Indonesian number. Example: 08123456789 or +628123456789</p>
+		<form id="search-form">
+			<input type="text" id="query" placeholder="Enter phone number" required />
+			<button type="submit">Search</button>
+		</form>
+		<div id="result" class="card" style="display:none;"></div>
+	</main>
+	<script>
+	const form = document.getElementById('search-form');
+	const result = document.getElementById('result');
+	form.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const q = document.getElementById('query').value.trim();
+		if (!q) return;
+		const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+		if (!res.ok) {
+			result.style.display = 'block';
+			result.innerText = 'Invalid or non-Indonesian number';
+			return;
+		}
+		const data = await res.json();
+		result.style.display = 'block';
+		result.innerHTML = `
+			<h3>${data.e164}</h3>
+			<p>Reports: <strong>${data.report_count}</strong></p>
+			<p>Carrier: ${data.carrier || '-'}</p>
+			<p>Line type: ${data.line_type || '-'}</p>
+			<p><a href="/numbers/${encodeURIComponent(data.e164)}">View details</a></p>
+		`;
+	});
+	</script>
+</body>
+</html>

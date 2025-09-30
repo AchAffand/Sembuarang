@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Number Detail</title>
+	<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+	<main class="container">
+		<h1>Number Detail</h1>
+		<div class="card">
+			<h2 id="num"></h2>
+			<p>Carrier: <span id="carrier">-</span> | Line: <span id="line">-</span></p>
+		</div>
+		<section>
+			<h3>Reports</h3>
+			<ul id="reports"></ul>
+		</section>
+		<section>
+			<h3>Submit a report</h3>
+			<form id="report-form">
+				<label>Category
+					<select id="category">
+						<option value="spam">spam</option>
+						<option value="fraud">fraud</option>
+						<option value="scam">scam</option>
+						<option value="harassment">harassment</option>
+						<option value="other">other</option>
+					</select>
+				</label>
+				<label>Confidence (0-100)
+					<input type="number" id="confidence" min="0" max="100" value="50">
+				</label>
+				<label>Note
+					<textarea id="note" maxlength="1000"></textarea>
+				</label>
+				<button type="submit">Submit</button>
+				<p id="msg"></p>
+			</form>
+		</section>
+	</main>
+	<script>
+	const e164 = decodeURIComponent(window.location.pathname.split('/').pop());
+	document.getElementById('num').innerText = e164;
+
+	async function loadDetails() {
+		const res = await fetch(`/api/numbers/${encodeURIComponent(e164)}`);
+		if (!res.ok) return;
+		const data = await res.json();
+		document.getElementById('carrier').innerText = data.carrier || '-';
+		document.getElementById('line').innerText = data.line_type || '-';
+		const list = document.getElementById('reports');
+		list.innerHTML = '';
+		data.reports
+			.filter(r => r.is_approved && !r.is_hidden)
+			.forEach(r => {
+				const li = document.createElement('li');
+				li.textContent = `${r.category} (${r.confidence}): ${r.note || ''}`;
+				list.appendChild(li);
+			});
+	}
+
+	loadDetails();
+
+	document.getElementById('report-form').addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const payload = {
+			category: document.getElementById('category').value,
+			confidence: parseInt(document.getElementById('confidence').value, 10),
+			note: document.getElementById('note').value || null,
+		};
+		const res = await fetch(`/api/numbers/${encodeURIComponent(e164)}/reports`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload),
+		});
+		const msg = document.getElementById('msg');
+		if (!res.ok) {
+			msg.textContent = 'Failed to submit report';
+			return;
+		}
+		msg.textContent = 'Report submitted; pending approval.';
+		loadDetails();
+	});
+	</script>
+</body>
+</html>
